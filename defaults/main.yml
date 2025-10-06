@@ -7,8 +7,8 @@ docker_service_name: my-service
 
 # Use either user_name and user_id or group_name and group_id
 # If *_name is not None, then id will be derived from the name and override any provided id
-docker_service_user_name: None
-docker_service_group_name: None
+docker_service_user_name: null
+docker_service_group_name: null
 docker_service_user_id: 1000
 docker_service_group_id: 1000
 
@@ -21,7 +21,7 @@ docker_service_file_mode: '0660'
 # Variables to pass to the Docker Compose template
 docker_compose_template_vars: {}
 
-docker_compose_template_path: docker-compose.yml.j2
+docker_compose_template_path: null
 
 # Subdirectories to create in the Docker service directory
 docker_service_subdirectories: []

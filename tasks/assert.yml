@@ -19,6 +19,15 @@
       Docker services root directory does not exist at {{ docker_services_root_dir }}.
       This directory must exist as a prerequisite.
 
+- name: Assert that a docker compose template path is provided
+  ansible.builtin.assert:
+    that:
+      - docker_compose_template_path is defined
+      - docker_compose_template_path is not none
+      - docker_compose_template_path | length > 0
+    fail_msg: >-
+      docker_compose_template_path must be set to the compose template that should be rendered.
+
 - name: Check if Docker is installed
   ansible.builtin.command:
     cmd: docker --version

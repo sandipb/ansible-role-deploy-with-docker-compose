@@ -6,6 +6,7 @@ This document describes how AI coding agents (like Codex) should interact with t
 ## Expectations
 - Keep changes focused on the requested task and respect existing conventions in `defaults/`, `tasks/`, and Molecule scenario files.
 - Prefer incremental updates with clear commit messages if committing outside CI jobs.
+- **Always use conventional commits format for commit messages** (e.g., `feat: add new feature`, `fix: resolve bug`, `docs: update documentation`, `test: add test cases`, `refactor: improve code structure`).
 - Run relevant Molecule scenarios or linting when practical and report anything that could not be executed.
 
 ## Workflow
@@ -15,8 +16,8 @@ This document describes how AI coding agents (like Codex) should interact with t
 4. Summarize modifications and recommended follow-up actions at the end of each session.
 
 ## Testing Guidance
-- Use `molecule test` for full verification when time permits; otherwise run targeted `molecule converge` and `molecule verify` steps.
-- Execute `ansible-lint` after significant task or handler updates.
+- Use `uv run molecule test` for full verification when time permits; otherwise run targeted `uv run molecule converge` and `uv run molecule verify` steps.
+- Execute `uv run ansible-lint` after significant task or handler updates.
 - Capture command outputs succinctly; highlight failures with next-step suggestions.
 
 ## Code Style
