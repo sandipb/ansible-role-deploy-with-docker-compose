@@ -10,11 +10,10 @@ docker_service_copy_files:
   ignore.conf: data/ignore.conf
 
 docker_service_templates:
-  proxy.conf.j2: conf.d/proxy.conf
+  default.conf.j2: conf.d/default.conf
 
 docker_service_templates_vars:
   server_name: app.example.com
-  proxy_pass: http://localhost:3000
 
 # Copied from defaults
 docker_service_dir_mode: '0770'

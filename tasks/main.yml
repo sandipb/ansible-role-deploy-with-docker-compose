@@ -5,52 +5,20 @@
 - name: Set facts
   ansible.builtin.include_tasks: set_facts.yml
 
-- name: Create Docker service directory
-  ansible.builtin.file:
-    path: "{{ docker_services_root_dir }}/{{ docker_service_name }}"
-    state: directory
-    mode: '{{ docker_service_dir_mode }}'  # Only the owner and group should have access
-    owner: "{{ docker_service_user_id }}"
-    group: "{{ docker_service_group_id }}"
+- name: Prepare service directory
+  ansible.builtin.include_tasks: prepare.yml
 
-- name: Create subdirectories
-  ansible.builtin.file:
-    path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item }}"
-    state: directory
-    mode: '{{ docker_service_dir_mode }}'
-    owner: "{{ docker_service_user_id }}"
-    group: "{{ docker_service_group_id }}"
-  loop: "{{ docker_service_subdirectories }}"
-  when: docker_service_subdirectories | length > 0
+- name: Determine if Docker Compose needs recreation
+  ansible.builtin.set_fact:
+    docker_compose_should_recreate: >-
+      {{
+        (docker_compose_template_result is defined and docker_compose_template_result.changed)
+        or (docker_service_copy_files_result is defined and docker_service_copy_files_result.changed)
+        or (docker_service_templates_result is defined and docker_service_templates_result.changed)
+      }}
 
-- name: Copy Docker Compose template
-  ansible.builtin.template:
-    src: "{{ docker_compose_template_path }}"
-    dest: "{{ docker_services_root_dir }}/{{ docker_service_name }}/docker-compose.yml"
-    mode: '{{ docker_service_file_mode }}'
-    owner: "{{ docker_service_user_id }}"
-    group: "{{ docker_service_group_id }}"
-
-- name: Copy requested service files
-  ansible.builtin.copy:
-    src: "{{ item.key }}"
-    dest: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item.value }}"
-    mode: '{{ docker_service_file_mode }}'
-    owner: "{{ docker_service_user_id }}"
-    group: "{{ docker_service_group_id }}"
-  loop: "{{ docker_service_copy_files | dict2items }}"
-  loop_control:
-    label: "{{ item.value }}"
-  when: docker_service_copy_files | length > 0
-
-- name: Copy requested service templates
-  ansible.builtin.template:
-    src: "{{ item.key }}"
-    dest: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item.value }}"
-    mode: '{{ docker_service_file_mode }}'
-    owner: "{{ docker_service_user_id }}"
-    group: "{{ docker_service_group_id }}"
-  loop: "{{ docker_service_templates | dict2items }}"
-  loop_control:
-    label: "{{ item.value }}"
-  when: docker_service_templates | length > 0
+- name: Run Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ docker_services_root_dir }}/{{ docker_service_name }}"
+    recreate: "{{ 'always' if docker_compose_should_recreate | default(false) else 'auto' }}"
+  register: docker_compose_result

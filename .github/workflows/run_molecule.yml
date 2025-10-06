@@ -1,0 +1,30 @@
+name: Run Molecule
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  molecule-test:
+    name: Molecule Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      ANSIBLE_FORCE_COLOR: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Sync project dependencies
+        run: uv sync
+
+      - name: Run Molecule test suite
+        run: uv run molecule test

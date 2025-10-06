@@ -10,7 +10,8 @@
 
   vars:
     docker_service_templates_expected_lines:
-      conf.d/proxy.conf: "proxy_pass http://localhost:3000;"
+      conf.d/default.conf: >-
+        server_name {{ docker_service_templates_vars.server_name }};
 
   tasks:
     - name: Service directory exists
@@ -141,3 +142,21 @@
             fail_msg: |
               Expected to find '{{ expected_line }}' in {{ first_template_entry.value }}, but it was missing.
           when: (docker_service_templates_expected_lines | default({})) | length > 0
+
+
+    - name: Test http://localhost with Host header "app.example.com"
+      ansible.builtin.uri:
+        url: "http://localhost"
+        headers:
+          Host: "app.example.com"
+        return_content: no
+        status_code: 200
+      retries: 5
+      delay: 1
+
+
+    - name: Test http://localhost returns 444 or error
+      ansible.builtin.uri:
+        url: "http://localhost"
+        return_content: no
+        status_code: 404

@@ -5,3 +5,5 @@ services:
     image: nginx:{{ tpl_vars.nginx_version }}
     ports:
       - "80:80"
+    volumes:
+      - ./conf.d:/etc/nginx/conf.d

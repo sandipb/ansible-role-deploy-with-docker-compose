@@ -17,6 +17,7 @@
         name:
           - python3-requests
           - python3-docker
+          - curl
         state: present
 
     - name: Include geerlingguy.docker role
