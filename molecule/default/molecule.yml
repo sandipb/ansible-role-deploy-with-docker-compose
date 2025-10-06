@@ -22,8 +22,8 @@ provisioner:
 dependency:
   name: galaxy
   options:
-    role-file: molecule/requirements.yml
-    requirements-file: molecule/requirements.yml
+    role-file: molecule/default/requirements.yml
+    requirements-file: molecule/default/requirements.yml
 
 lint: |
   set -e
