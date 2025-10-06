@@ -8,6 +8,10 @@
   vars_files:
     - vars/all.yml
 
+  vars:
+    docker_service_templates_expected_lines:
+      conf.d/proxy.conf: "proxy_pass http://localhost:3000;"
+
   tasks:
     - name: Service directory exists
       block:
@@ -74,3 +78,66 @@
           ansible.builtin.assert:
             that:
               - docker_compose_file.services.nginx.image == ("nginx:" + docker_compose_template_vars.nginx_version)
+
+    - name: Requested files copied
+      when: docker_service_copy_files | length > 0
+      block:
+        - name: Stat copied files
+          ansible.builtin.stat:
+            path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item.value }}"
+          register: copied_file_stats
+          loop: "{{ docker_service_copy_files | dict2items }}"
+          loop_control:
+            label: "{{ item.value }}"
+
+        - name: Assert copied file properties
+          ansible.builtin.assert:
+            that:
+              - item.stat.exists
+              - item.stat.isreg
+              - item.stat.pw_name == docker_service_user_name
+              - item.stat.gr_name == docker_service_group_name
+              - item.stat.mode == docker_service_file_mode
+          loop: "{{ copied_file_stats.results }}"
+          loop_control:
+            label: "{{ item.item.value }}"
+
+    - name: Requested templates rendered
+      when: docker_service_templates | length > 0
+      block:
+        - name: Select first requested template
+          ansible.builtin.set_fact:
+            first_template_entry: "{{ docker_service_templates | dict2items | first }}"
+
+        - name: Stat first rendered template
+          ansible.builtin.stat:
+            path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ first_template_entry.value }}"
+          register: rendered_template_stat
+
+        - name: Assert first rendered template properties
+          ansible.builtin.assert:
+            that:
+              - rendered_template_stat.stat.exists
+              - rendered_template_stat.stat.isreg
+              - rendered_template_stat.stat.pw_name == docker_service_user_name
+              - rendered_template_stat.stat.gr_name == docker_service_group_name
+              - rendered_template_stat.stat.mode == docker_service_file_mode
+
+        - name: Read first rendered template
+          ansible.builtin.slurp:
+            src: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ first_template_entry.value }}"
+          register: first_template_content
+
+        # Spot-check the first template to ensure templating works without iterating every file.
+        - name: Assert first rendered template content
+          vars:
+            decoded_content: "{{ first_template_content.content | b64decode }}"
+            expected_line_map: "{{ docker_service_templates_expected_lines | default({}) }}"
+            expected_line: "{{ expected_line_map[first_template_entry.value] | default(None) }}"
+          ansible.builtin.assert:
+            that:
+              - expected_line is not none
+              - expected_line in decoded_content
+            fail_msg: |
+              Expected to find '{{ expected_line }}' in {{ first_template_entry.value }}, but it was missing.
+          when: (docker_service_templates_expected_lines | default({})) | length > 0

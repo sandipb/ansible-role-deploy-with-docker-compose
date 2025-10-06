@@ -2,12 +2,19 @@ docker_services_root_dir: /opt/docker_services
 docker_service_name: simple_web
 docker_service_user_name: ubuntu
 docker_service_group_name: ubuntu
-docker_service_subdirectories: [data]
+docker_service_subdirectories: [data, conf.d]
 docker_compose_template_vars:
   nginx_version: 1.29.0
 
 docker_service_copy_files:
   ignore.conf: data/ignore.conf
+
+docker_service_templates:
+  proxy.conf.j2: conf.d/proxy.conf
+
+docker_service_templates_vars:
+  server_name: app.example.com
+  proxy_pass: http://localhost:3000
 
 # Copied from defaults
 docker_service_dir_mode: '0770'

@@ -32,4 +32,5 @@ docker_service_copy_files: {}
 
 # Templates to copy to the Docker service directory
 # key is the source template, value is the destination file (relative to the service directory)
-docker_service_copy_templates: {}
+docker_service_templates: {}
+docker_service_templates_vars: {}

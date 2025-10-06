@@ -21,6 +21,7 @@
     owner: "{{ docker_service_user_id }}"
     group: "{{ docker_service_group_id }}"
   loop: "{{ docker_service_subdirectories }}"
+  when: docker_service_subdirectories | length > 0
 
 - name: Copy Docker Compose template
   ansible.builtin.template:
@@ -29,3 +30,27 @@
     mode: '{{ docker_service_file_mode }}'
     owner: "{{ docker_service_user_id }}"
     group: "{{ docker_service_group_id }}"
+
+- name: Copy requested service files
+  ansible.builtin.copy:
+    src: "{{ item.key }}"
+    dest: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item.value }}"
+    mode: '{{ docker_service_file_mode }}'
+    owner: "{{ docker_service_user_id }}"
+    group: "{{ docker_service_group_id }}"
+  loop: "{{ docker_service_copy_files | dict2items }}"
+  loop_control:
+    label: "{{ item.value }}"
+  when: docker_service_copy_files | length > 0
+
+- name: Copy requested service templates
+  ansible.builtin.template:
+    src: "{{ item.key }}"
+    dest: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item.value }}"
+    mode: '{{ docker_service_file_mode }}'
+    owner: "{{ docker_service_user_id }}"
+    group: "{{ docker_service_group_id }}"
+  loop: "{{ docker_service_templates | dict2items }}"
+  loop_control:
+    label: "{{ item.value }}"
+  when: docker_service_templates | length > 0
