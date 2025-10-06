@@ -1,0 +1,24 @@
+---
+- name: Validate prerequisites and environment
+  ansible.builtin.include_tasks: assert.yml
+
+- name: Set facts
+  ansible.builtin.include_tasks: set_facts.yml
+
+- name: Prepare service directory
+  ansible.builtin.include_tasks: prepare.yml
+
+- name: Determine if Docker Compose needs recreation
+  ansible.builtin.set_fact:
+    docker_compose_should_recreate: >-
+      {{
+        (docker_compose_template_result is defined and docker_compose_template_result.changed)
+        or (docker_service_copy_files_result is defined and docker_service_copy_files_result.changed)
+        or (docker_service_templates_result is defined and docker_service_templates_result.changed)
+      }}
+
+- name: Run Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ docker_services_root_dir }}/{{ docker_service_name }}"
+    recreate: "{{ 'always' if docker_compose_should_recreate | default(false) else 'auto' }}"
+  register: docker_compose_result

@@ -1,0 +1,57 @@
+# This task asserts that:
+# - The Docker services root directory exists (prerequisite)
+# - Docker is installed
+# - Docker Compose is installed
+
+- name: Check if Docker services root directory exists
+  ansible.builtin.stat:
+    path: "{{ docker_services_root_dir }}"
+  register: docker_dir_stat
+
+- name: Assert that Docker services root directory exists
+  ansible.builtin.assert:
+    that:
+      - docker_services_root_dir is defined
+      - docker_services_root_dir | length > 0
+      - docker_dir_stat.stat.exists
+      - docker_dir_stat.stat.isdir
+    fail_msg: >
+      Docker services root directory does not exist at {{ docker_services_root_dir }}.
+      This directory must exist as a prerequisite.
+
+- name: Assert that a docker compose template path is provided
+  ansible.builtin.assert:
+    that:
+      - docker_compose_template_path is defined
+      - docker_compose_template_path is not none
+      - docker_compose_template_path | length > 0
+    fail_msg: >-
+      docker_compose_template_path must be set to the compose template that should be rendered.
+
+- name: Check if Docker is installed
+  ansible.builtin.command:
+    cmd: docker --version
+  register: docker_version_check
+  failed_when: false
+  changed_when: false
+
+- name: Assert that Docker is installed
+  ansible.builtin.assert:
+    that:
+      - docker_version_check.rc == 0
+    fail_msg: >
+      Docker is not installed or not in PATH.
+      Please install Docker and try again.
+
+- name: Check if Docker Compose is installed
+  ansible.builtin.command:
+    cmd: docker compose version
+  register: docker_compose_version_check
+  failed_when: false
+  changed_when: false
+
+- name: Assert that Docker Compose is installed
+  ansible.builtin.assert:
+    that:
+      - docker_compose_version_check.rc == 0
+    fail_msg: "Docker Compose is not installed or not in PATH"

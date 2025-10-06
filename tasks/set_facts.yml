@@ -1,0 +1,40 @@
+- name: Get user ID from username
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ docker_service_user_name }}"
+  register: user_info
+  when: docker_service_user_name is not none
+  failed_when: >
+    user_info.ansible_facts.getent_passwd is not defined
+    or not user_info.ansible_facts.getent_passwd
+    or docker_service_user_name is not in user_info.ansible_facts.getent_passwd
+
+
+- name: Set user ID from resolved username
+  ansible.builtin.set_fact:
+    docker_service_user_id: "{{ user_info.ansible_facts.getent_passwd[docker_service_user_name][2] }}"
+  when: docker_service_user_name is not none
+
+- name: Get group ID from groupname
+  ansible.builtin.getent:
+    database: group
+    key: "{{ docker_service_group_name }}"
+  register: group_info
+  when: docker_service_group_name is not none
+  failed_when: >
+    group_info.ansible_facts.getent_group is not defined
+    or not group_info.ansible_facts.getent_group
+    or docker_service_group_name is not in group_info.ansible_facts.getent_group
+
+- name: Set group ID from resolved groupname
+  ansible.builtin.set_fact:
+    docker_service_group_id: "{{ group_info.ansible_facts.getent_group[docker_service_group_name][1] }}"
+  when: docker_service_group_name is not none
+
+
+- name: Display resolved user and group IDs
+  ansible.builtin.debug:
+    msg: |
+      Using the following IDs for Docker service:
+      - User ID: {{ docker_service_user_id }}{% if docker_service_user_name is not none %} (derived from name '{{ docker_service_user_name }}'){% endif %}
+      - Group ID: {{ docker_service_group_id }}{% if docker_service_group_name is not none %} (derived from name '{{ docker_service_group_name }}'){% endif %}
