@@ -1,0 +1,12 @@
+[project]
+name = "ansible-role-deploy-with-docker-compose"
+version = "0.1.0"
+description = "An Ansible role to deploy services using docker compose"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ansible>=12.0.0",
+    "ansible-lint>=25.9.0",
+    "molecule>=25.9.0",
+    "molecule-plugins[docker]>=25.8.12",
+]

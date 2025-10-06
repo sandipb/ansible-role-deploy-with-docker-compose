@@ -1,0 +1,35 @@
+---
+# Where to store the Docker services
+docker_services_root_dir: /opt/docker
+
+# Name of the Docker service, will be used as the directory name
+docker_service_name: my-service
+
+# Use either user_name and user_id or group_name and group_id
+# If *_name is not None, then id will be derived from the name and override any provided id
+docker_service_user_name: None
+docker_service_group_name: None
+docker_service_user_id: 1000
+docker_service_group_id: 1000
+
+# All directories in the Docker service directory will be created with this mode
+docker_service_dir_mode: '0770'
+
+# All files in the Docker service directory will be created with this mode
+docker_service_file_mode: '0660'
+
+# Variables to pass to the Docker Compose template
+docker_compose_template_vars: {}
+
+docker_compose_template_path: docker-compose.yml.j2
+
+# Subdirectories to create in the Docker service directory
+docker_service_subdirectories: []
+
+# Files to copy to the Docker service directory
+# key is the source file, value is the destination file (relative to the service directory)
+docker_service_copy_files: {}
+
+# Templates to copy to the Docker service directory
+# key is the source template, value is the destination file (relative to the service directory)
+docker_service_copy_templates: {}

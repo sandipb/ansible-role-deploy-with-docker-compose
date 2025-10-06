@@ -1,0 +1,14 @@
+docker_services_root_dir: /opt/docker_services
+docker_service_name: simple_web
+docker_service_user_name: ubuntu
+docker_service_group_name: ubuntu
+docker_service_subdirectories: [data]
+docker_compose_template_vars:
+  nginx_version: 1.29.0
+
+docker_service_copy_files:
+  ignore.conf: data/ignore.conf
+
+# Copied from defaults
+docker_service_dir_mode: '0770'
+docker_service_file_mode: '0660'

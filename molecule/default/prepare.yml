@@ -1,0 +1,32 @@
+---
+- name: Prepare test environment
+  hosts: all
+  become: true
+
+  vars_files:
+    - vars/all.yml
+
+  tasks:
+    - name: Update apt package cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install required Python packages for Docker module
+      ansible.builtin.package:
+        name:
+          - python3-requests
+          - python3-docker
+        state: present
+
+    - name: Include geerlingguy.docker role
+      ansible.builtin.include_role:
+        name: geerlingguy.docker
+
+    - name: Create Docker services root directory
+      ansible.builtin.file:
+        path: "{{ docker_services_root_dir }}"
+        state: directory
+        mode: '0755'
+        owner: "root"
+        group: "root"

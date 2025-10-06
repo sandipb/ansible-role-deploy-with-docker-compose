@@ -1,0 +1,31 @@
+---
+- name: Validate prerequisites and environment
+  ansible.builtin.include_tasks: assert.yml
+
+- name: Set facts
+  ansible.builtin.include_tasks: set_facts.yml
+
+- name: Create Docker service directory
+  ansible.builtin.file:
+    path: "{{ docker_services_root_dir }}/{{ docker_service_name }}"
+    state: directory
+    mode: '{{ docker_service_dir_mode }}'  # Only the owner and group should have access
+    owner: "{{ docker_service_user_id }}"
+    group: "{{ docker_service_group_id }}"
+
+- name: Create subdirectories
+  ansible.builtin.file:
+    path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item }}"
+    state: directory
+    mode: '{{ docker_service_dir_mode }}'
+    owner: "{{ docker_service_user_id }}"
+    group: "{{ docker_service_group_id }}"
+  loop: "{{ docker_service_subdirectories }}"
+
+- name: Copy Docker Compose template
+  ansible.builtin.template:
+    src: "{{ docker_compose_template_path }}"
+    dest: "{{ docker_services_root_dir }}/{{ docker_service_name }}/docker-compose.yml"
+    mode: '{{ docker_service_file_mode }}'
+    owner: "{{ docker_service_user_id }}"
+    group: "{{ docker_service_group_id }}"

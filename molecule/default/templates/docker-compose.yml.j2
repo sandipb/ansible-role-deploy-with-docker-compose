@@ -1,0 +1,7 @@
+{% set tpl_vars = docker_compose_template_vars %}
+
+services:
+  nginx:
+    image: nginx:{{ tpl_vars.nginx_version }}
+    ports:
+      - "80:80"

@@ -1,0 +1,76 @@
+---
+# Purpose: assert that the instance really ended up in the expected state.
+# Molecule calls this playbook with `molecule verify`.
+- name: Verify
+  hosts: instance
+  gather_facts: false
+
+  vars_files:
+    - vars/all.yml
+
+  tasks:
+    - name: Service directory exists
+      block:
+        - name: Stat service directory
+          ansible.builtin.stat:
+            path: "{{ docker_services_root_dir }}/{{ docker_service_name }}"
+          register: stat
+
+        - name: Assert service directory creation
+          ansible.builtin.assert:
+            that:
+              - stat.stat.exists
+              - stat.stat.isdir
+              - stat.stat.pw_name == docker_service_user_name
+              - stat.stat.gr_name == docker_service_group_name
+              - stat.stat.mode == docker_service_dir_mode
+
+    - name: Subdirectories exist as requested
+      block:
+        - name: Stat subdirectories
+          ansible.builtin.stat:
+            path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item }}"
+          register: subdirectory_stat
+          loop: "{{ docker_service_subdirectories }}"
+
+        - name: Assert subdirectories creation
+          ansible.builtin.assert:
+            that:
+              - item.stat.exists
+              - item.stat.isdir
+              - item.stat.pw_name == docker_service_user_name
+              - item.stat.gr_name == docker_service_group_name
+              - item.stat.mode == docker_service_dir_mode
+          loop: "{{ subdirectory_stat.results }}"
+
+    - name: Docker Compose file exists
+      block:
+        - name: Stat Docker Compose file
+          ansible.builtin.stat:
+            path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/docker-compose.yml"
+          register: stat
+
+        - name: Assert Docker Compose file creation
+          ansible.builtin.assert:
+            that:
+              - stat.stat.exists
+              - stat.stat.isreg
+              - stat.stat.pw_name == docker_service_user_name
+              - stat.stat.gr_name == docker_service_group_name
+              - stat.stat.mode == docker_service_file_mode
+
+    - name: Docker Compose file contains the correct content
+      block:
+        - name: Read Docker Compose file
+          ansible.builtin.slurp:
+            src: "{{ docker_services_root_dir }}/{{ docker_service_name }}/docker-compose.yml"
+          register: docker_compose_file_b64
+
+        - name: Decode Docker Compose file
+          ansible.builtin.set_fact:
+            docker_compose_file: "{{ docker_compose_file_b64.content | b64decode | from_yaml }}"
+
+        - name: Assert Docker Compose file content
+          ansible.builtin.assert:
+            that:
+              - docker_compose_file.services.nginx.image == ("nginx:" + docker_compose_template_vars.nginx_version)
