@@ -13,10 +13,10 @@ docker_service_user_id: 1000
 docker_service_group_id: 1000
 
 # All directories in the Docker service directory will be created with this mode
-docker_service_dir_mode: '0770'
+docker_service_dir_mode: "0770"
 
 # All files in the Docker service directory will be created with this mode
-docker_service_file_mode: '0660'
+docker_service_file_mode: "0660"
 
 # Variables to pass to the Docker Compose template
 docker_compose_template_vars: {}
@@ -34,3 +34,6 @@ docker_service_copy_files: {}
 # key is the source template, value is the destination file (relative to the service directory)
 docker_service_templates: {}
 docker_service_templates_vars: {}
+
+# Force pull Docker images and recreate containers
+docker_pull: false
