@@ -8,6 +8,12 @@
 - name: Prepare service directory
   ansible.builtin.include_tasks: prepare.yml
 
+- name: Pull Docker images if docker_pull is true
+  community.docker.docker_compose_v2_pull:
+    project_src: "{{ docker_services_root_dir }}/{{ docker_service_name }}"
+  when: docker_pull | default(false) | bool
+  register: docker_pull_result
+
 - name: Determine if Docker Compose needs recreation
   ansible.builtin.set_fact:
     docker_compose_should_recreate: >-
@@ -15,6 +21,7 @@
         (docker_compose_template_result is defined and docker_compose_template_result.changed)
         or (docker_service_copy_files_result is defined and docker_service_copy_files_result.changed)
         or (docker_service_templates_result is defined and docker_service_templates_result.changed)
+        or (docker_pull_result is defined and docker_pull_result.changed)
       }}
 
 - name: Run Docker Compose

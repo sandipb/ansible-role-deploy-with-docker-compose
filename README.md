@@ -31,6 +31,7 @@ Role Variables
 | `docker_service_copy_files` | `{}` | - | Mapping of `src: dest` regular files to copy to the service directory. `src` must be an absolute path; `dest` is relative to the service directory. |
 | `docker_service_templates` | `{}` | - | Mapping of `src: dest` templates to render into the service directory. `src` must be an absolute path; `dest` is relative to the service directory. |
 | `docker_service_templates_vars` | `{}` | - | Variable map made available to each entry under `docker_service_templates` when rendering templates. |
+| `docker_pull` | `false` | - | When set to `true`, forces Docker images to be pulled from the registry and recreates containers to use the updated images. Useful for refreshing images with mutable tags like `:latest`. |
 
 Template Guidance
 -----------------
@@ -61,6 +62,12 @@ Example Playbook
         docker_service_templates_vars:
           backend_host: localhost
           backend_port: 8080
+        docker_pull: "{{ docker_force_pull | default(false) }}"
+```
+
+To force image updates and container recreation, run the playbook with:
+```bash
+ansible-playbook playbook.yml -e docker_force_pull=true
 ```
 
 License
