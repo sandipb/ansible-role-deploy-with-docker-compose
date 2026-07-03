@@ -1,0 +1,60 @@
+---
+version: '3'
+
+vars:
+  MOLECULE_SCENARIO: '{{.MOLECULE_SCENARIO | default "default"}}'
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  lint:
+    desc: Run ansible-lint
+    cmds:
+      - uv run ansible-lint
+
+  molecule:test:
+    desc: Run the full Molecule test suite
+    cmds:
+      - uv run molecule test --scenario-name {{.MOLECULE_SCENARIO}}
+
+  molecule:converge:
+    desc: Converge the Molecule scenario
+    cmds:
+      - uv run molecule converge --scenario-name {{.MOLECULE_SCENARIO}}
+
+  molecule:verify:
+    desc: Verify the Molecule scenario
+    cmds:
+      - uv run molecule verify --scenario-name {{.MOLECULE_SCENARIO}}
+
+  molecule:destroy:
+    desc: Destroy Molecule resources
+    cmds:
+      - uv run molecule destroy --scenario-name {{.MOLECULE_SCENARIO}}
+
+  release:check:
+    desc: Check that CHANGELOG.md and pyproject.toml match VERSION
+    requires:
+      vars:
+        - VERSION
+    vars:
+      CHANGELOG_VERSION:
+        sh: awk '/^## / { print $2; exit }' CHANGELOG.md
+      PYPROJECT_VERSION:
+        sh: awk -F '"' '/^version = / { print $2; exit }' pyproject.toml
+    preconditions:
+      - sh: test "{{.CHANGELOG_VERSION}}" = "{{.VERSION}}"
+        msg: CHANGELOG.md top version is {{.CHANGELOG_VERSION}}, expected {{.VERSION}}
+      - sh: test "{{.PYPROJECT_VERSION}}" = "{{.VERSION}}"
+        msg: pyproject.toml version is {{.PYPROJECT_VERSION}}, expected {{.VERSION}}
+    cmds:
+      - echo "CHANGELOG.md and pyproject.toml match {{.VERSION}}"
+
+  test:
+    desc: Run lint and the full Molecule test suite
+    cmds:
+      - task: lint
+      - task: molecule:test

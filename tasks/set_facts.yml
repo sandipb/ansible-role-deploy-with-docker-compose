@@ -1,3 +1,12 @@
+---
+- name: Set default resolved user ID
+  ansible.builtin.set_fact:
+    docker_service_resolved_user_id: "{{ docker_service_user_id }}"
+
+- name: Set default resolved group ID
+  ansible.builtin.set_fact:
+    docker_service_resolved_group_id: "{{ docker_service_group_id }}"
+
 - name: Get user ID from username
   ansible.builtin.getent:
     database: passwd
@@ -9,10 +18,9 @@
     or not user_info.ansible_facts.getent_passwd
     or docker_service_user_name is not in user_info.ansible_facts.getent_passwd
 
-
-- name: Set user ID from resolved username
+- name: Set resolved user ID from username
   ansible.builtin.set_fact:
-    docker_service_user_id: "{{ user_info.ansible_facts.getent_passwd[docker_service_user_name][2] }}"
+    docker_service_resolved_user_id: "{{ user_info.ansible_facts.getent_passwd[docker_service_user_name][2] }}"
   when: docker_service_user_name is not none
 
 - name: Get group ID from groupname
@@ -26,15 +34,107 @@
     or not group_info.ansible_facts.getent_group
     or docker_service_group_name is not in group_info.ansible_facts.getent_group
 
-- name: Set group ID from resolved groupname
+- name: Set resolved group ID from groupname
   ansible.builtin.set_fact:
-    docker_service_group_id: "{{ group_info.ansible_facts.getent_group[docker_service_group_name][1] }}"
+    docker_service_resolved_group_id: "{{ group_info.ansible_facts.getent_group[docker_service_group_name][1] }}"
   when: docker_service_group_name is not none
 
+- name: Initialize inferred Docker service directory paths
+  ansible.builtin.set_fact:
+    docker_service_inferred_subdirectory_paths: []
+
+- name: Add inferred parent directories from copied file destinations
+  ansible.builtin.set_fact:
+    docker_service_inferred_subdirectory_paths: "{{ docker_service_inferred_subdirectory_paths + inferred_parent_paths }}"
+  vars:
+    path_parts: "{{ item.value.split('/') }}"
+    inferred_parent_paths: >-
+      {%- set paths = [] -%}
+      {%- for index in range(1, path_parts | length) -%}
+      {%- set _ = paths.append(path_parts[:index] | join('/')) -%}
+      {%- endfor -%}
+      {{ paths }}
+  loop: "{{ docker_service_copy_files | dict2items }}"
+  loop_control:
+    label: "{{ item.value }}"
+  when: item.value.split('/') | length > 1
+
+- name: Add inferred parent directories from rendered template destinations
+  ansible.builtin.set_fact:
+    docker_service_inferred_subdirectory_paths: "{{ docker_service_inferred_subdirectory_paths + inferred_parent_paths }}"
+  vars:
+    path_parts: "{{ item.value.split('/') }}"
+    inferred_parent_paths: >-
+      {%- set paths = [] -%}
+      {%- for index in range(1, path_parts | length) -%}
+      {%- set _ = paths.append(path_parts[:index] | join('/')) -%}
+      {%- endfor -%}
+      {{ paths }}
+  loop: "{{ docker_service_templates | dict2items }}"
+  loop_control:
+    label: "{{ item.value }}"
+  when: item.value.split('/') | length > 1
+
+- name: Initialize normalized Docker service directories
+  ansible.builtin.set_fact:
+    docker_service_normalized_directories: []
+    docker_service_explicit_subdirectory_paths: []
+
+- name: Add inferred Docker service directories with default metadata
+  ansible.builtin.set_fact:
+    docker_service_normalized_directories: >-
+      {{
+        docker_service_normalized_directories
+        + [{
+            'path': item,
+            'owner': docker_service_resolved_user_id,
+            'group': docker_service_resolved_group_id,
+            'mode': docker_service_dir_mode
+          }]
+      }}
+  loop: "{{ docker_service_inferred_subdirectory_paths | unique | list }}"
+  loop_control:
+    label: "{{ item }}"
+  when: docker_service_inferred_subdirectory_paths | length > 0
+
+- name: Track explicit Docker service subdirectory paths
+  ansible.builtin.set_fact:
+    docker_service_explicit_subdirectory_paths: "{{ docker_service_explicit_subdirectory_paths + [item if item is string else item.path] }}"
+  loop: "{{ docker_service_subdirectories }}"
+  loop_control:
+    label: "{{ item if item is string else item.path }}"
+
+- name: Remove inferred directories overridden by explicit entries
+  ansible.builtin.set_fact:
+    docker_service_normalized_directories: >-
+      {{
+        docker_service_normalized_directories
+        | rejectattr('path', 'in', docker_service_explicit_subdirectory_paths)
+        | list
+      }}
+
+- name: Add explicit Docker service directories
+  ansible.builtin.set_fact:
+    docker_service_normalized_directories: >-
+      {{
+        docker_service_normalized_directories
+        + [{
+            'path': item if item is string else item.path,
+            'owner': docker_service_resolved_user_id if item is string else item.owner | default(docker_service_resolved_user_id),
+            'group': docker_service_resolved_group_id if item is string else item.group | default(docker_service_resolved_group_id),
+            'mode': docker_service_dir_mode if item is string else item.mode | default(docker_service_dir_mode)
+          }]
+      }}
+  loop: "{{ docker_service_subdirectories }}"
+  loop_control:
+    label: "{{ item if item is string else item.path }}"
 
 - name: Display resolved user and group IDs
   ansible.builtin.debug:
     msg: |
       Using the following IDs for Docker service:
-      - User ID: {{ docker_service_user_id }}{% if docker_service_user_name is not none %} (derived from name '{{ docker_service_user_name }}'){% endif %}
-      - Group ID: {{ docker_service_group_id }}{% if docker_service_group_name is not none %} (derived from name '{{ docker_service_group_name }}'){% endif %}
+      - User ID: {{ docker_service_resolved_user_id }}
+        {% if docker_service_user_name is not none %}(derived from name '{{ docker_service_user_name }}'){% endif %}
+      - Group ID: {{ docker_service_resolved_group_id }}
+        {% if docker_service_group_name is not none %}(derived from name '{{ docker_service_group_name }}'){% endif %}
+  when: docker_service_debug | bool

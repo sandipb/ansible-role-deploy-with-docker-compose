@@ -9,8 +9,14 @@
     - vars/all.yml
 
   vars:
+    expected_service_directories:
+      data: "0770"
+      cache: "0755"
+      config: "0755"
+      config/nginx: "0770"
+      config/nginx/conf.d: "0770"
     docker_service_templates_expected_lines:
-      conf.d/default.conf: >-
+      config/nginx/conf.d/default.conf: >-
         server_name {{ docker_service_templates_vars.server_name }};
 
   tasks:
@@ -30,23 +36,27 @@
               - stat.stat.gr_name == docker_service_group_name
               - stat.stat.mode == docker_service_dir_mode
 
-    - name: Subdirectories exist as requested
+    - name: Service subdirectories exist as expected
       block:
-        - name: Stat subdirectories
+        - name: Stat service subdirectories
           ansible.builtin.stat:
-            path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item }}"
-          register: subdirectory_stat
-          loop: "{{ docker_service_subdirectories }}"
+            path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item.key }}"
+          register: service_directory_stats
+          loop: "{{ expected_service_directories | dict2items }}"
+          loop_control:
+            label: "{{ item.key }}"
 
-        - name: Assert subdirectories creation
+        - name: Assert service subdirectory properties
           ansible.builtin.assert:
             that:
               - item.stat.exists
               - item.stat.isdir
               - item.stat.pw_name == docker_service_user_name
               - item.stat.gr_name == docker_service_group_name
-              - item.stat.mode == docker_service_dir_mode
-          loop: "{{ subdirectory_stat.results }}"
+              - item.stat.mode == item.item.value
+          loop: "{{ service_directory_stats.results }}"
+          loop_control:
+            label: "{{ item.item.key }}"
 
     - name: Docker Compose file exists
       block:
@@ -79,6 +89,7 @@
           ansible.builtin.assert:
             that:
               - docker_compose_file.services.nginx.image == ("nginx:" + docker_compose_template_vars.nginx_version)
+              - docker_compose_file.services.nginx.volumes[0] == "./config/nginx/conf.d:/etc/nginx/conf.d"
 
     - name: Requested files copied
       when: docker_service_copy_files | length > 0
@@ -106,57 +117,61 @@
     - name: Requested templates rendered
       when: docker_service_templates | length > 0
       block:
-        - name: Select first requested template
-          ansible.builtin.set_fact:
-            first_template_entry: "{{ docker_service_templates | dict2items | first }}"
-
-        - name: Stat first rendered template
+        - name: Stat rendered templates
           ansible.builtin.stat:
-            path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ first_template_entry.value }}"
-          register: rendered_template_stat
+            path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item.value }}"
+          register: rendered_template_stats
+          loop: "{{ docker_service_templates | dict2items }}"
+          loop_control:
+            label: "{{ item.value }}"
 
-        - name: Assert first rendered template properties
+        - name: Assert rendered template properties
           ansible.builtin.assert:
             that:
-              - rendered_template_stat.stat.exists
-              - rendered_template_stat.stat.isreg
-              - rendered_template_stat.stat.pw_name == docker_service_user_name
-              - rendered_template_stat.stat.gr_name == docker_service_group_name
-              - rendered_template_stat.stat.mode == docker_service_file_mode
+              - item.stat.exists
+              - item.stat.isreg
+              - item.stat.pw_name == docker_service_user_name
+              - item.stat.gr_name == docker_service_group_name
+              - item.stat.mode == docker_service_file_mode
+          loop: "{{ rendered_template_stats.results }}"
+          loop_control:
+            label: "{{ item.item.value }}"
 
-        - name: Read first rendered template
+        - name: Read rendered templates
           ansible.builtin.slurp:
-            src: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ first_template_entry.value }}"
-          register: first_template_content
+            src: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item.value }}"
+          register: rendered_template_contents
+          loop: "{{ docker_service_templates | dict2items }}"
+          loop_control:
+            label: "{{ item.value }}"
 
-        # Spot-check the first template to ensure templating works without iterating every file.
-        - name: Assert first rendered template content
+        - name: Assert rendered template content
           vars:
-            decoded_content: "{{ first_template_content.content | b64decode }}"
-            expected_line_map: "{{ docker_service_templates_expected_lines | default({}) }}"
-            expected_line: "{{ expected_line_map[first_template_entry.value] | default(None) }}"
+            decoded_content: "{{ item.content | b64decode }}"
+            expected_line: "{{ docker_service_templates_expected_lines[item.item.value] }}"
           ansible.builtin.assert:
             that:
-              - expected_line is not none
               - expected_line in decoded_content
             fail_msg: |
-              Expected to find '{{ expected_line }}' in {{ first_template_entry.value }}, but it was missing.
-          when: (docker_service_templates_expected_lines | default({})) | length > 0
-
+              Expected to find '{{ expected_line }}' in {{ item.item.value }}, but it was missing.
+          loop: "{{ rendered_template_contents.results }}"
+          loop_control:
+            label: "{{ item.item.value }}"
 
     - name: Test http://localhost with Host header "app.example.com"
       ansible.builtin.uri:
-        url: "http://localhost"
+        url: http://localhost
         headers:
-          Host: "app.example.com"
-        return_content: no
+          Host: app.example.com
+        return_content: false
         status_code: 200
+      register: app_http_result
       retries: 5
       delay: 1
+      until: app_http_result.status == 200
 
-
-    - name: Test http://localhost returns 444 or error
+    - name: Test http://localhost returns 404
       ansible.builtin.uri:
-        url: "http://localhost"
-        return_content: no
+        url: http://localhost
+        return_content: false
         status_code: 404

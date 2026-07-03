@@ -1,37 +1,40 @@
+---
 - name: Create Docker service directory
   ansible.builtin.file:
     path: "{{ docker_services_root_dir }}/{{ docker_service_name }}"
     state: directory
-    mode: '{{ docker_service_dir_mode }}'  # Only the owner and group should have access
-    owner: "{{ docker_service_user_id }}"
-    group: "{{ docker_service_group_id }}"
+    mode: "{{ docker_service_dir_mode }}"
+    owner: "{{ docker_service_resolved_user_id }}"
+    group: "{{ docker_service_resolved_group_id }}"
 
-- name: Create subdirectories
+- name: Create service subdirectories
   ansible.builtin.file:
-    path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item }}"
+    path: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item.path }}"
     state: directory
-    mode: '{{ docker_service_dir_mode }}'
-    owner: "{{ docker_service_user_id }}"
-    group: "{{ docker_service_group_id }}"
-  loop: "{{ docker_service_subdirectories }}"
-  when: docker_service_subdirectories | length > 0
+    mode: "{{ item.mode }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+  loop: "{{ docker_service_normalized_directories }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: docker_service_normalized_directories | length > 0
 
 - name: Copy Docker Compose template
   ansible.builtin.template:
     src: "{{ docker_compose_template_path }}"
     dest: "{{ docker_services_root_dir }}/{{ docker_service_name }}/docker-compose.yml"
-    mode: '{{ docker_service_file_mode }}'
-    owner: "{{ docker_service_user_id }}"
-    group: "{{ docker_service_group_id }}"
+    mode: "{{ docker_service_file_mode }}"
+    owner: "{{ docker_service_resolved_user_id }}"
+    group: "{{ docker_service_resolved_group_id }}"
   register: docker_compose_template_result
 
 - name: Copy requested service files
   ansible.builtin.copy:
     src: "{{ item.key }}"
     dest: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item.value }}"
-    mode: '{{ docker_service_file_mode }}'
-    owner: "{{ docker_service_user_id }}"
-    group: "{{ docker_service_group_id }}"
+    mode: "{{ docker_service_file_mode }}"
+    owner: "{{ docker_service_resolved_user_id }}"
+    group: "{{ docker_service_resolved_group_id }}"
   register: docker_service_copy_files_result
   loop: "{{ docker_service_copy_files | dict2items }}"
   loop_control:
@@ -42,9 +45,9 @@
   ansible.builtin.template:
     src: "{{ item.key }}"
     dest: "{{ docker_services_root_dir }}/{{ docker_service_name }}/{{ item.value }}"
-    mode: '{{ docker_service_file_mode }}'
-    owner: "{{ docker_service_user_id }}"
-    group: "{{ docker_service_group_id }}"
+    mode: "{{ docker_service_file_mode }}"
+    owner: "{{ docker_service_resolved_user_id }}"
+    group: "{{ docker_service_resolved_group_id }}"
   register: docker_service_templates_result
   loop: "{{ docker_service_templates | dict2items }}"
   loop_control:

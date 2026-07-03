@@ -37,3 +37,6 @@ docker_service_templates_vars: {}
 
 # Force pull Docker images and recreate containers
 docker_pull: false
+
+# Print resolved user and group IDs during role execution
+docker_service_debug: false
