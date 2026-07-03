@@ -1,32 +1,169 @@
-# This task asserts that:
-# - The Docker services root directory exists (prerequisite)
-# - Docker is installed
-# - Docker Compose is installed
+---
+# Validate inputs and target prerequisites before any filesystem writes.
 
 - name: Check if Docker services root directory exists
   ansible.builtin.stat:
     path: "{{ docker_services_root_dir }}"
   register: docker_dir_stat
 
-- name: Assert that Docker services root directory exists
+- name: Assert Docker services root directory is a valid existing boundary
   ansible.builtin.assert:
     that:
       - docker_services_root_dir is defined
+      - docker_services_root_dir is string
       - docker_services_root_dir | length > 0
+      - docker_services_root_dir is match('^/')
+      - docker_services_root_dir != '/'
       - docker_dir_stat.stat.exists
       - docker_dir_stat.stat.isdir
-    fail_msg: >
-      Docker services root directory does not exist at {{ docker_services_root_dir }}.
-      This directory must exist as a prerequisite.
+    fail_msg: >-
+      docker_services_root_dir must be an existing absolute directory other than '/'.
+      The role only writes below docker_services_root_dir/docker_service_name.
+
+- name: Assert Docker service name is a safe directory name
+  ansible.builtin.assert:
+    that:
+      - docker_service_name is defined
+      - docker_service_name is string
+      - docker_service_name is match('^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+    fail_msg: >-
+      docker_service_name must be a single directory name matching
+      ^[A-Za-z0-9][A-Za-z0-9_.-]*$.
 
 - name: Assert that a docker compose template path is provided
   ansible.builtin.assert:
     that:
       - docker_compose_template_path is defined
       - docker_compose_template_path is not none
+      - docker_compose_template_path is string
       - docker_compose_template_path | length > 0
     fail_msg: >-
       docker_compose_template_path must be set to the compose template that should be rendered.
+
+- name: Assert variable collection types
+  ansible.builtin.assert:
+    that:
+      - docker_compose_template_vars is mapping
+      - docker_service_copy_files is mapping
+      - docker_service_templates is mapping
+      - docker_service_templates_vars is mapping
+      - docker_service_subdirectories is sequence
+      - docker_service_subdirectories is not string
+    fail_msg: >-
+      docker_compose_template_vars, docker_service_copy_files, docker_service_templates,
+      and docker_service_templates_vars must be mappings. docker_service_subdirectories
+      must be a list.
+
+- name: Assert global modes are valid octal strings
+  ansible.builtin.assert:
+    that:
+      - docker_service_dir_mode is string
+      - docker_service_dir_mode is match('^[0-7]{3,4}$')
+      - docker_service_file_mode is string
+      - docker_service_file_mode is match('^[0-7]{3,4}$')
+    fail_msg: >-
+      docker_service_dir_mode and docker_service_file_mode must be quoted octal-like
+      strings such as "0770" or "660".
+
+- name: Assert fallback user and group IDs are numeric when names are not provided
+  ansible.builtin.assert:
+    that:
+      - docker_service_user_name is not none or ((docker_service_user_id | string) is match('^[0-9]+$'))
+      - docker_service_group_name is not none or ((docker_service_group_id | string) is match('^[0-9]+$'))
+    fail_msg: >-
+      docker_service_user_id and docker_service_group_id must be numeric when the
+      corresponding name variable is not provided.
+
+- name: Assert docker_pull is boolean-like
+  ansible.builtin.assert:
+    that:
+      - >-
+        docker_pull is boolean
+        or (docker_pull | string | lower) in ['true', 'false', 'yes', 'no', 'on', 'off', '1', '0']
+    fail_msg: docker_pull must be a boolean-like value.
+
+- name: Validate Docker service subdirectory entries
+  vars:
+    subdir_path: "{{ item if item is string else item.path | default('') }}"
+  ansible.builtin.assert:
+    that:
+      - item is string or item is mapping
+      - subdir_path is string
+      - subdir_path | length > 0
+      - subdir_path != '.'
+      - not subdir_path.startswith('/')
+      - "'' not in subdir_path.split('/')"
+      - "'.' not in subdir_path.split('/')"
+      - "'..' not in subdir_path.split('/')"
+      - item is string or item.path is defined
+      - >-
+        item is string
+        or item.mode is not defined
+        or (item.mode is string and item.mode is match('^[0-7]{3,4}$'))
+    fail_msg: >-
+      docker_service_subdirectories entries must be strings or mappings with path.
+      Paths must be safe relative paths below the service directory and mode overrides
+      must be quoted octal-like strings.
+  loop: "{{ docker_service_subdirectories }}"
+  loop_control:
+    label: "{{ item if item is string else item.path | default(item) }}"
+
+- name: Build explicit Docker service subdirectory path list
+  ansible.builtin.set_fact:
+    docker_service_explicit_subdirectory_paths: >-
+      {{
+        docker_service_explicit_subdirectory_paths | default([])
+        + [item if item is string else item.path]
+      }}
+  loop: "{{ docker_service_subdirectories }}"
+  loop_control:
+    label: "{{ item if item is string else item.path }}"
+
+- name: Assert explicit Docker service subdirectories are unique
+  ansible.builtin.assert:
+    that:
+      - >-
+        (docker_service_explicit_subdirectory_paths | default([]) | length)
+        == (docker_service_explicit_subdirectory_paths | default([]) | unique | list | length)
+    fail_msg: docker_service_subdirectories must not declare the same path more than once.
+
+- name: Validate requested service file destinations
+  vars:
+    dest_path: "{{ item.value }}"
+  ansible.builtin.assert:
+    that:
+      - dest_path is string
+      - dest_path | length > 0
+      - dest_path != '.'
+      - not dest_path.startswith('/')
+      - "'' not in dest_path.split('/')"
+      - "'.' not in dest_path.split('/')"
+      - "'..' not in dest_path.split('/')"
+    fail_msg: >-
+      docker_service_copy_files destinations must be safe relative file paths below
+      the service directory.
+  loop: "{{ docker_service_copy_files | dict2items }}"
+  loop_control:
+    label: "{{ item.value }}"
+
+- name: Validate requested service template destinations
+  vars:
+    dest_path: "{{ item.value }}"
+  ansible.builtin.assert:
+    that:
+      - dest_path is string
+      - dest_path | length > 0
+      - dest_path != '.'
+      - not dest_path.startswith('/')
+      - "'' not in dest_path.split('/')"
+      - "'.' not in dest_path.split('/')"
+      - "'..' not in dest_path.split('/')"
+    fail_msg: >-
+      docker_service_templates destinations must be safe relative file paths below
+      the service directory.
+  loop: "{{ docker_service_templates | dict2items }}"
+  loop_control:
+    label: "{{ item.value }}"
 
 - name: Check if Docker is installed
   ansible.builtin.command:
@@ -54,4 +191,4 @@
   ansible.builtin.assert:
     that:
       - docker_compose_version_check.rc == 0
-    fail_msg: "Docker Compose is not installed or not in PATH"
+    fail_msg: Docker Compose is not installed or not in PATH

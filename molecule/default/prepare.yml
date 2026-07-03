@@ -6,6 +6,10 @@
   vars_files:
     - vars/all.yml
 
+  vars:
+    docker_daemon_options:
+      storage-driver: vfs
+
   tasks:
     - name: Update apt package cache
       ansible.builtin.apt:
