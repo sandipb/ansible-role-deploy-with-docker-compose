@@ -16,6 +16,7 @@ This document describes how AI coding agents should work in this Ansible role re
 3. Keep user-facing behavior in `README.md` and maintainer rationale in `docs/design.md`.
 4. Validate templates in `molecule/default/templates/` against supplied vars before running Molecule.
 5. Summarize modifications, validation results, and recommended follow-up actions at the end of each session.
+6. For commit, push, PR, and auto-merge work, follow active git workflow guidance before executing commands. Draft commit messages and PR bodies for review before creating commits or PRs.
 
 ## Testing Guidance
 - Use `uv run molecule test` for full verification after significant role behavior changes.
@@ -36,11 +37,13 @@ This document describes how AI coding agents should work in this Ansible role re
 - Update Molecule verification when changing role behavior.
 - Keep `pyproject.toml` aligned with the tested toolchain and release version.
 - Keep the Git tag, `pyproject.toml` version, and top `CHANGELOG.md` entry in sync for releases.
+- Write commit messages with enough high-level context to be useful in GitHub automatic release notes. Avoid low-level implementation detail in the subject.
 
 ## Safety & Secrets
 - Never commit secrets or host-specific data; rely on inventory variables or vault integration.
 - Respect `.gitignore` and Molecule ignore rules such as `molecule/default/files/ignore.conf`.
 - Flag unexpected configuration drift or dirty working tree state that you did not introduce.
+- When referencing private Linear issues, use only the issue identifier such as `SB-87` in commits and PRs. Do not include private Linear URLs.
 
 ## Communication
 - Confirm assumptions early, especially around deployment targets, permissions, and secrets.
